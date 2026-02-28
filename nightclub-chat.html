@@ -781,10 +781,10 @@
       });
       if (wasAtBottom || msgs.length > prevCount) wrap.scrollTop = wrap.scrollHeight;
 
-      // Vibrate on new message (not own)
+      // Διπλή δόνηση μόνο για ανακοινώσεις admin
       const lastMsg = msgs[msgs.length - 1];
-      if (lastMsg && lastMsg[1].nick !== currentNick && lastMsg[1].type === 'user' && msgs.length > prevCount) {
-        if (navigator.vibrate) navigator.vibrate(30);
+      if (lastMsg && lastMsg[1].type === 'announcement' && msgs.length > prevCount) {
+        if (navigator.vibrate) navigator.vibrate([100, 80, 100]);
       }
     }
 
