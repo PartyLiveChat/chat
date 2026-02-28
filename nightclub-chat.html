@@ -565,7 +565,6 @@
       <div class="chat-title">NEON PARTY</div>
     </div>
     <div class="header-right">
-      <button class="leaderboard-btn" onclick="openLeaderboard()">🏆 Top</button>
       <div class="online-badge">
         <div class="online-dot"></div>
         <span id="onlineCount">0</span>
@@ -595,17 +594,6 @@
     <button class="send-btn" onclick="sendMessage()">
       <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
     </button>
-  </div>
-</div>
-
-<!-- ===== LEADERBOARD MODAL ===== -->
-<div class="modal-overlay" id="lbModal" onclick="closeLbIfOutside(event)">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">🏆 Leaderboard</div>
-      <button class="modal-close" onclick="closeLeaderboard()">✕</button>
-    </div>
-    <div id="lbContent"><div class="lb-empty">Φόρτωση...</div></div>
   </div>
 </div>
 
@@ -1141,9 +1129,6 @@
 
     await push(messagesRef, msgData);
 
-    // Update leaderboard
-    await set(ref(db, `leaderboard/${currentNick}`), { nick: currentNick, count: increment(1) });
-
     input.value = '';
     input.style.height = 'auto';
   };
@@ -1224,37 +1209,6 @@
     const msgData = { nick: currentNick, gif: url, ts: Date.now(), type: pmTarget ? 'private' : 'user' };
     if (pmTarget) { msgData.to = pmTarget; cancelPM(); }
     await push(messagesRef, msgData);
-    await set(ref(db, `leaderboard/${currentNick}`), { nick: currentNick, count: increment(1) });
-  }
-
-  // ---- LEADERBOARD ----
-  window.openLeaderboard = function() {
-    document.getElementById('lbModal').classList.add('open');
-    renderLeaderboard();
-  };
-
-  window.closeLeaderboard = function() {
-    document.getElementById('lbModal').classList.remove('open');
-  };
-
-  window.closeLbIfOutside = function(e) {
-    if (e.target === document.getElementById('lbModal')) closeLeaderboard();
-  };
-
-  async function renderLeaderboard() {
-    const snap = await get(leaderboardRef);
-    const data = snap.val();
-    const content = document.getElementById('lbContent');
-    if (!data) { content.innerHTML = '<div class="lb-empty">Κανείς δεν έχει στείλει μήνυμα ακόμα!</div>'; return; }
-
-    const sorted = Object.values(data).sort((a,b) => b.count - a.count).slice(0, 10);
-    const medals = ['gold','silver','bronze'];
-    content.innerHTML = sorted.map((u, i) => `
-      <div class="lb-row">
-        <div class="lb-rank ${medals[i]||''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-        <div class="lb-nick">#${escHtml(u.nick)}</div>
-        <div class="lb-count">${u.count}</div>
-      </div>`).join('');
   }
 
   // ---- INPUT EVENTS ----
