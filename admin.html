@@ -262,7 +262,13 @@
     </div>
 
     <div class="admin-card">
-      <div class="admin-card-title">🏆 Leaderboard Live</div>
+      <div class="admin-card-title">🔍 Ιστορικό Χρήστη</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="kick-input" id="searchNick" type="number" placeholder="Αριθμός χρήστη (π.χ. 47)" inputmode="numeric" style="margin-bottom:0;flex:1">
+        <button class="btn-announce" style="width:auto;padding:0 16px;font-size:15px" onclick="searchUser()">ΑΝΑΖΗΤΗΣΗ</button>
+      </div>
+      <div id="userHistory"></div>
+    </div>
       <div id="lbList"></div>
     </div>
 
@@ -409,7 +415,38 @@
     showToast('Ανακοίνωση στάλθηκε!');
   };
 
-  window.muteUser = async function() {
+  window.searchUser = async function() {
+    const nick = document.getElementById('searchNick').value.trim();
+    if (!nick) return;
+    const snap = await get(messagesRef);
+    const data = snap.val();
+    const history = document.getElementById('userHistory');
+
+    if (!data) { history.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px">Δεν βρέθηκαν μηνύματα.</div>'; return; }
+
+    const msgs = Object.entries(data).filter(([id, msg]) => msg.nick === nick && msg.type === 'user');
+
+    if (!msgs.length) {
+      history.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:8px">Κανένα μήνυμα από το #${escHtml(nick)}.</div>`;
+      return;
+    }
+
+    history.innerHTML = `<div style="font-size:12px;color:var(--neon-cyan);letter-spacing:1px;margin-bottom:8px">#${escHtml(nick)} — ${msgs.length} μηνύματα</div>` +
+      msgs.map(([id, msg]) => `
+        <div class="admin-msg-item" style="margin-bottom:6px">
+          <div class="admin-msg-content">
+            <div class="admin-msg-nick">${new Date(msg.ts).toLocaleTimeString('el-GR', {hour:'2-digit',minute:'2-digit'})}</div>
+            <div class="admin-msg-text">${msg.gif ? '🎬 GIF' : escHtml(msg.text||'')}</div>
+          </div>
+          <button class="btn-delete-msg" onclick="window._delAndRefresh('${id}','${nick}')">✕</button>
+        </div>`).join('');
+  };
+
+  window._delAndRefresh = async function(id, nick) {
+    await remove(ref(db, `messages/${id}`));
+    document.getElementById('searchNick').value = nick;
+    window.searchUser();
+  };
     const nick = document.getElementById('muteInput').value.trim();
     const mins = parseInt(document.getElementById('muteMins').value.trim());
     if (!nick || !mins || mins < 1) { showToast('Βάλε αριθμό χρήστη και λεπτά!'); return; }
