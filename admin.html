@@ -382,26 +382,26 @@
           <button class="btn-delete-msg" onclick="window._del('${id}')">✕</button>`;
         adminMsgs.appendChild(item);
       });
+      // Ιστορικό ανακοινώσεων
+      const announcements = msgs.filter(([id, msg]) => msg.type === 'announcement');
+      const annHistory = document.getElementById('announcementHistory');
+      if (annHistory) {
+        if (!announcements.length) {
+          annHistory.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:4px">Καμία ανακοίνωση ακόμα.</div>';
+        } else {
+          annHistory.innerHTML = [...announcements].reverse().map(([id, msg]) => `
+            <div class="admin-msg-item" style="margin-bottom:6px">
+              <div class="admin-msg-content">
+                <div class="admin-msg-nick">${new Date(msg.ts).toLocaleTimeString('el-GR', {hour:'2-digit',minute:'2-digit'})}</div>
+                <div class="admin-msg-text">${escHtml(msg.text||'')}</div>
+              </div>
+              <button class="btn-delete-msg" onclick="window._del('${id}')">✕</button>
+            </div>`).join('');
+        }
+      }
     });
 
-    // Ιστορικό ανακοινώσεων
-    const announcements = msgs.filter(([id, msg]) => msg.type === 'announcement');
-    const annHistory = document.getElementById('announcementHistory');
-    if (annHistory) {
-      if (!announcements.length) {
-        annHistory.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:4px">Καμία ανακοίνωση ακόμα.</div>';
-      } else {
-        annHistory.innerHTML = announcements.reverse().map(([id, msg]) => `
-          <div class="admin-msg-item" style="margin-bottom:6px">
-            <div class="admin-msg-content">
-              <div class="admin-msg-nick">${new Date(msg.ts).toLocaleTimeString('el-GR', {hour:'2-digit',minute:'2-digit'})}</div>
-              <div class="admin-msg-text">${escHtml(msg.text||'')}</div>
-            </div>
-            <button class="btn-delete-msg" onclick="window._del('${id}')">✕</button>
-          </div>`).join('');
-      }
-    }
-    onValue(leaderboardRef, snap => {
+    // Leaderboard live
       const data = snap.val();
       const list = document.getElementById('lbList');
       if (!data) { list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px">Κανείς δεν έχει στείλει μήνυμα ακόμα!</div>'; return; }
