@@ -255,9 +255,10 @@
     </div>
 
     <div class="admin-card">
-      <div class="admin-card-title">🚫 Kick Χρήστη</div>
-      <input class="kick-input" id="kickInput" type="number" placeholder="Αριθμός χρήστη (π.χ. 47)" inputmode="numeric">
-      <button class="btn-kick" onclick="kickUser()">KICK ΧΡΗΣΤΗ</button>
+      <div class="admin-card-title">🔇 Mute Χρήστη</div>
+      <input class="kick-input" id="muteInput" type="number" placeholder="Αριθμός χρήστη (π.χ. 47)" inputmode="numeric">
+      <input class="kick-input" id="muteMins" type="number" placeholder="Λεπτά mute (π.χ. 5)" inputmode="numeric" style="margin-top:8px">
+      <button class="btn-kick" onclick="muteUser()">MUTE ΧΡΗΣΤΗ</button>
     </div>
 
     <div class="admin-card">
@@ -306,6 +307,7 @@
   const presenceRef = ref(db, 'presence');
   const kickedRef = ref(db, 'kicked');
   const leaderboardRef = ref(db, 'leaderboard');
+  const mutedRef = ref(db, 'muted');
 
   function showToast(msg) {
     const t = document.getElementById('toast');
@@ -407,12 +409,15 @@
     showToast('Ανακοίνωση στάλθηκε!');
   };
 
-  window.kickUser = async function() {
-    const nick = document.getElementById('kickInput').value.trim();
-    if (!nick) return;
-    await set(ref(db, `kicked/${nick}`), true);
-    showToast(`#${nick} kickαρίστηκε!`);
-    document.getElementById('kickInput').value = '';
+  window.muteUser = async function() {
+    const nick = document.getElementById('muteInput').value.trim();
+    const mins = parseInt(document.getElementById('muteMins').value.trim());
+    if (!nick || !mins || mins < 1) { showToast('Βάλε αριθμό χρήστη και λεπτά!'); return; }
+    const until = Date.now() + mins * 60 * 1000;
+    await set(ref(db, `muted/${nick}`), { until, mins });
+    showToast(`#${nick} έχει mute για ${mins} λεπτά!`);
+    document.getElementById('muteInput').value = '';
+    document.getElementById('muteMins').value = '';
   };
 
   window._del = async function(id) {
@@ -432,6 +437,7 @@
       await remove(kickedRef);
       await remove(presenceRef);
       await remove(leaderboardRef);
+      await remove(mutedRef);
       await set(chatEnabledRef, false);
       showToast('Νέα βραδιά ξεκίνησε!');
     }
