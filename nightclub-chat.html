@@ -905,21 +905,26 @@
   // ---- MUTE ----
   const mutedRef = ref(db, 'muted');
   let muteInterval = null;
+  let latestMutedData = null;
 
   onValue(mutedRef, (snap) => {
+    latestMutedData = snap.val();
+    checkMuteStatus();
+  });
+
+  function checkMuteStatus() {
     if (!currentNick || isAdmin) return;
-    const muted = snap.val();
+    const muted = latestMutedData;
     if (muted && muted[currentNick] && muted[currentNick].until > Date.now()) {
       showMuteScreen(muted[currentNick].until, muted[currentNick].mins);
     } else if (document.getElementById('muteScreen').classList.contains('active')) {
-      // Έληξε το mute — επιστροφή στο chat
       showScreen('chatScreen');
       setTimeout(() => {
         const wrap = document.getElementById('messagesWrap');
         if (wrap) wrap.scrollTop = wrap.scrollHeight;
       }, 200);
     }
-  });
+  }
 
   function showMuteScreen(until, mins) {
     showScreen('muteScreen');
@@ -1111,6 +1116,7 @@
     push(messagesRef, { type: 'system', text: `#${currentNick} μπήκε στο chat`, ts: Date.now() });
 
     showScreen('chatScreen');
+    checkMuteStatus();
     setTimeout(() => {
       const wrap = document.getElementById('messagesWrap');
       if (wrap) wrap.scrollTop = wrap.scrollHeight;
