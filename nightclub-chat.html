@@ -521,7 +521,7 @@
     <div class="logo-icon">🎉</div>
     <div class="logo-name">NEON PARTY</div>
   </div>
-  <div class="countdown-number" id="countdownNum">10</div>
+  <div class="countdown-number" id="countdownNum">5</div>
   <div class="countdown-msg" id="countdownMsg" style="display:none">Let's Chat Until The Sunrise</div>
 </div>
 
@@ -777,7 +777,7 @@
   // ---- COUNTDOWN ----
   function runCountdown(onDone) {
     showScreen('countdownScreen');
-    let n = 10;
+    let n = 5;
     const numEl = document.getElementById('countdownNum');
     const msgEl = document.getElementById('countdownMsg');
     numEl.style.display = 'block';
@@ -813,9 +813,9 @@
       return;
     }
 
-    // Αν είναι στο disabled και ανοίξει το chat → πίσω στο welcome
+    // Αν είναι στο disabled και ανοίξει το chat → αυτόματα countdown
     if (enabled && prevChatEnabled === false) {
-      showScreen('welcomeScreen');
+      runCountdown(() => showScreen('loginScreen'));
     }
 
     prevChatEnabled = enabled;
