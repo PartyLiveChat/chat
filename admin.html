@@ -271,8 +271,6 @@
       </div>
       <div id="userHistory"></div>
     </div>
-      <div id="lbList"></div>
-    </div>
 
     <div class="admin-card">
       <div class="admin-card-title">💬 Τελευταία Μηνύματα</div>
@@ -400,28 +398,12 @@
         }
       }
     });
-
-    // Leaderboard live
-    onValue(leaderboardRef, snap => {
-      const data = snap.val();
-      const list = document.getElementById('lbList');
-      if (!data) { list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px">Κανείς δεν έχει στείλει μήνυμα ακόμα!</div>'; return; }
-      const sorted = Object.values(data).sort((a,b) => b.count - a.count).slice(0,10);
-      const medals = ['gold','silver','bronze'];
-      list.innerHTML = sorted.map((u,i) => `
-        <div class="lb-row">
-          <div class="lb-rank ${medals[i]||''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
-          <div class="lb-nick">#${escHtml(u.nick)}</div>
-          <div class="lb-count">${u.count}</div>
-        </div>`).join('');
-    });
   }
 
   // ---- ACTIONS ----
   window.toggleChat = async function() {
     const snap = await get(chatEnabledRef);
     const current = snap.val();
-    if (current) await remove(leaderboardRef);
     await set(chatEnabledRef, !current);
     showToast(current ? 'Chat απενεργοποιήθηκε!' : 'Chat ενεργοποιήθηκε!');
   };
