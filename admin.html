@@ -447,6 +447,8 @@
     document.getElementById('searchNick').value = nick;
     window.searchUser();
   };
+
+  window.muteUser = async function() {
     const nick = document.getElementById('muteInput').value.trim();
     const mins = parseInt(document.getElementById('muteMins').value.trim());
     if (!nick || !mins || mins < 1) { showToast('Βάλε αριθμό χρήστη και λεπτά!'); return; }
