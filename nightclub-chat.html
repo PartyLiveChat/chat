@@ -515,7 +515,20 @@
   </div>
 </div>
 
-<!-- ===== COUNTDOWN ===== -->
+<!-- ===== MUTE SCREEN ===== -->
+<div class="screen" id="muteScreen">
+  <div class="logo-wrap">
+    <div class="logo-icon">🎉</div>
+    <div class="logo-name">NEON PARTY</div>
+  </div>
+  <div class="disabled-wrap">
+    <div class="disabled-icon">🔇</div>
+    <div class="disabled-title">Έχεις πάρει ένα διάλειμμα</div>
+    <div class="disabled-text" style="margin-bottom:16px">για <span id="muteMinsDisplay">?</span> λεπτά</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;animation:neonColorShift 6s ease-in-out infinite;" id="muteTimer">--:--</div>
+    <div class="disabled-text" style="margin-top:12px;font-size:13px">Επιστρέφεις αυτόματα στο chat όταν τελειώσει ο χρόνος.</div>
+  </div>
+</div>
 <div class="screen" id="countdownScreen">
   <div class="logo-wrap" style="margin-bottom:16px">
     <div class="logo-icon">🎉</div>
@@ -650,9 +663,10 @@
     </div>
 
     <div class="admin-card">
-      <div class="admin-card-title">🚫 Kick Χρήστη</div>
-      <input class="kick-input" id="kickInput" type="number" placeholder="Αριθμός χρήστη (π.χ. 47)" inputmode="numeric">
-      <button class="btn-kick" onclick="kickUser()">KICK ΧΡΗΣΤΗ</button>
+      <div class="admin-card-title">🔇 Mute Χρήστη</div>
+      <input class="kick-input" id="muteInput" type="number" placeholder="Αριθμός χρήστη (π.χ. 47)" inputmode="numeric">
+      <input class="kick-input" id="muteMins" type="number" placeholder="Λεπτά mute (π.χ. 5)" inputmode="numeric" style="margin-top:8px">
+      <button class="btn-kick" onclick="muteUser()">MUTE ΧΡΗΣΤΗ</button>
     </div>
 
     <div class="admin-card">
@@ -888,16 +902,43 @@
     if (adminOnline) adminOnline.textContent = count;
   });
 
-  // ---- KICKED ----
-  onValue(kickedRef, (snap) => {
+  // ---- MUTE ----
+  const mutedRef = ref(db, 'muted');
+  let muteInterval = null;
+
+  onValue(mutedRef, (snap) => {
     if (!currentNick || isAdmin) return;
-    const kicked = snap.val();
-    if (kicked && kicked[currentNick]) {
-      showToast('Αφαιρέθηκες από το chat.');
-      currentNick = null;
-      showScreen('disabledScreen');
+    const muted = snap.val();
+    if (muted && muted[currentNick] && muted[currentNick].until > Date.now()) {
+      showMuteScreen(muted[currentNick].until, muted[currentNick].mins);
+    } else if (document.getElementById('muteScreen').classList.contains('active')) {
+      // Έληξε το mute — επιστροφή στο chat
+      showScreen('chatScreen');
+      setTimeout(() => {
+        const wrap = document.getElementById('messagesWrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
+      }, 200);
     }
   });
+
+  function showMuteScreen(until, mins) {
+    showScreen('muteScreen');
+    clearInterval(muteInterval);
+    muteInterval = setInterval(() => {
+      const remaining = Math.ceil((until - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(muteInterval);
+        return;
+      }
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      const el = document.getElementById('muteTimer');
+      if (el) el.textContent = `${m}:${String(s).padStart(2,'0')}`;
+    }, 1000);
+    // Set initial mins display
+    const minsEl = document.getElementById('muteMinsDisplay');
+    if (minsEl) minsEl.textContent = mins;
+  }
 
   // ---- HELPERS ----
   function showScreen(id) {
@@ -1274,12 +1315,15 @@
     showToast('Ανακοίνωση στάλθηκε!');
   };
 
-  window.kickUser = async function() {
-    const nick = document.getElementById('kickInput').value.trim();
-    if (!nick) return;
-    await set(ref(db, `kicked/${nick}`), true);
-    showToast(`#${nick} kickαρίστηκε!`);
-    document.getElementById('kickInput').value = '';
+  window.muteUser = async function() {
+    const nick = document.getElementById('muteInput').value.trim();
+    const mins = parseInt(document.getElementById('muteMins').value.trim());
+    if (!nick || !mins || mins < 1) { showToast('Βάλε αριθμό χρήστη και λεπτά!'); return; }
+    const until = Date.now() + mins * 60 * 1000;
+    await set(ref(db, `muted/${nick}`), { until, mins });
+    showToast(`#${nick} έχει mute για ${mins} λεπτά!`);
+    document.getElementById('muteInput').value = '';
+    document.getElementById('muteMins').value = '';
   };
 
   window._deleteMsg = async function(id) {
@@ -1299,6 +1343,7 @@
       await remove(kickedRef);
       await remove(presenceRef);
       await remove(leaderboardRef);
+      await remove(mutedRef);
       await set(chatEnabledRef, false);
       document.getElementById('chatToggle').classList.remove('on');
       document.getElementById('toggleName').textContent = 'Chat Κλειστό';
