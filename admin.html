@@ -402,6 +402,7 @@
     });
 
     // Leaderboard live
+    onValue(leaderboardRef, snap => {
       const data = snap.val();
       const list = document.getElementById('lbList');
       if (!data) { list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px">Κανείς δεν έχει στείλει μήνυμα ακόμα!</div>'; return; }
