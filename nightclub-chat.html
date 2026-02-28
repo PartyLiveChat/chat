@@ -490,11 +490,21 @@
 </head>
 <body>
 
-<!-- ===== DISABLED ===== -->
-<div class="screen active" id="disabledScreen">
+<!-- ===== WELCOME (αρχική) ===== -->
+<div class="screen active" id="welcomeScreen">
   <div class="logo-wrap">
     <div class="logo-icon">🎉</div>
     <!-- ΑΛΛΑΞΕ ΕΔΩ: Όνομα party -->
+    <div class="logo-name">NEON PARTY</div>
+    <div class="logo-sub">Live Chat</div>
+  </div>
+  <button class="btn-primary" style="max-width:280px;font-size:28px;padding:20px;letter-spacing:6px" onclick="handleJoin()">JOIN</button>
+</div>
+
+<!-- ===== DISABLED ===== -->
+<div class="screen" id="disabledScreen">
+  <div class="logo-wrap">
+    <div class="logo-icon">🎉</div>
     <div class="logo-name">NEON PARTY</div>
     <div class="logo-sub">Live Chat</div>
   </div>
@@ -708,6 +718,62 @@
   const kickedRef = ref(db, 'kicked');
   const leaderboardRef = ref(db, 'leaderboard');
 
+  // ---- AUDIO ----
+  let audioCtx = null;
+
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  // "Ντιν" για countdown
+  function playDing() {
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch(e) {}
+  }
+
+  // Βαθύς ήχος για ανακοίνωση admin
+  function playAnnouncement() {
+    try {
+      const ctx = getAudioCtx();
+      // Πρώτος ήχος
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(220, ctx.currentTime);
+      gain1.gain.setValueAtTime(0.6, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.6);
+      // Δεύτερος ήχος (πιο ψηλός)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(330, ctx.currentTime + 0.3);
+      gain2.gain.setValueAtTime(0, ctx.currentTime);
+      gain2.gain.setValueAtTime(0.5, ctx.currentTime + 0.3);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      osc2.start(ctx.currentTime + 0.3);
+      osc2.stop(ctx.currentTime + 0.9);
+    } catch(e) {}
+  }
+
   // ---- COUNTDOWN ----
   function runCountdown(onDone) {
     showScreen('countdownScreen');
@@ -717,14 +783,12 @@
     numEl.style.display = 'block';
     msgEl.style.display = 'none';
 
-    // Vibrate pattern on each tick
     const tick = () => {
       numEl.textContent = n;
-      if (navigator.vibrate) navigator.vibrate(80);
+      playDing();
       if (n <= 0) {
         numEl.style.display = 'none';
         msgEl.style.display = 'block';
-        if (navigator.vibrate) navigator.vibrate([100,50,100,50,200]);
         setTimeout(onDone, 3000);
         return;
       }
@@ -740,6 +804,7 @@
     const enabled = snap.val();
     if (isAdmin) return;
 
+    // Αν ο χρήστης είναι ήδη στο chat και το κλείσουν
     if (currentNick) {
       if (!enabled) {
         showScreen('disabledScreen');
@@ -748,17 +813,24 @@
       return;
     }
 
-    // First time OR transitioning from disabled -> enabled: show countdown
+    // Αν είναι στο disabled και ανοίξει το chat → πίσω στο welcome
     if (enabled && prevChatEnabled === false) {
-      runCountdown(() => showScreen('loginScreen'));
-    } else if (enabled && prevChatEnabled === null) {
-      // Page load while chat already enabled: skip countdown
-      showScreen('loginScreen');
-    } else if (!enabled) {
-      showScreen('disabledScreen');
+      showScreen('welcomeScreen');
     }
+
     prevChatEnabled = enabled;
   });
+
+  // ---- JOIN BUTTON ----
+  window.handleJoin = async function() {
+    const snap = await get(chatEnabledRef);
+    const enabled = snap.val();
+    if (enabled) {
+      runCountdown(() => showScreen('loginScreen'));
+    } else {
+      showScreen('disabledScreen');
+    }
+  };
 
   // ---- MESSAGES ----
   onValue(messagesRef, (snap) => {
@@ -781,10 +853,10 @@
       });
       if (wasAtBottom || msgs.length > prevCount) wrap.scrollTop = wrap.scrollHeight;
 
-      // Διπλή δόνηση μόνο για ανακοινώσεις admin
+      // Διπλός ήχος για ανακοινώσεις admin
       const lastMsg = msgs[msgs.length - 1];
       if (lastMsg && lastMsg[1].type === 'announcement' && msgs.length > prevCount) {
-        if (navigator.vibrate) navigator.vibrate([100, 80, 100]);
+        playAnnouncement();
       }
     }
 
