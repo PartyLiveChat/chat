@@ -1034,21 +1034,35 @@
   // ---- JOIN ----
   window.joinChat = async function() {
     const val = document.getElementById('nicknameInput').value.trim();
+    const errEl = document.getElementById('loginError');
     if (!val || isNaN(val)) {
-      document.getElementById('loginError').style.display = 'block';
+      errEl.textContent = 'Βάλε έναν έγκυρο αριθμό!';
+      errEl.style.display = 'block';
       return;
     }
-    document.getElementById('loginError').style.display = 'none';
-    currentNick = val;
+    errEl.style.display = 'none';
 
-    const kickSnap = await get(ref(db, `kicked/${currentNick}`));
+    // Έλεγχος αν υπάρχει ήδη αυτό το # online
+    const presenceSnap = await get(presenceRef);
+    const presenceData = presenceSnap.val();
+    if (presenceData) {
+      const alreadyOnline = Object.values(presenceData).some(p => String(p.nick) === String(val));
+      if (alreadyOnline) {
+        errEl.textContent = `Ο αριθμός #${val} χρησιμοποιείται ήδη!`;
+        errEl.style.display = 'block';
+        return;
+      }
+    }
+
+    // Έλεγχος αν έχει kicked
+    const kickSnap = await get(ref(db, `kicked/${val}`));
     if (kickSnap.exists()) {
-      document.getElementById('loginError').textContent = 'Δεν μπορείς να μπεις στο chat.';
-      document.getElementById('loginError').style.display = 'block';
-      currentNick = null;
+      errEl.textContent = 'Δεν μπορείς να μπεις στο chat.';
+      errEl.style.display = 'block';
       return;
     }
 
+    currentNick = val;
     myPresenceRef = ref(db, `presence/${currentNick}_${Date.now()}`);
     await set(myPresenceRef, { nick: currentNick, joinedAt: serverTimestamp() });
     onDisconnect(myPresenceRef).remove();
