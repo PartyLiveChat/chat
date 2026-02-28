@@ -663,20 +663,20 @@
 
 <!-- Firebase -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, push, onValue, set, get, remove, onDisconnect, serverTimestamp, increment, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+  import { getDatabase, ref, push, onValue, set, get, remove, onDisconnect, serverTimestamp, increment, update } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
 
   // ============================================================
   // 🔥 FIREBASE CONFIG — ΑΛΛΑΞΕ ΤΑ ΠΑΡΑΚΑΤΩ ΜΕ ΤΑ ΔΙΚΑ ΣΟΥ
   // ============================================================
   const firebaseConfig = {
-    apiKey: "ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ_API_KEY",
-    authDomain: "ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ.firebaseapp.com",
-    databaseURL: "https://ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ",
-    storageBucket: "ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ.appspot.com",
-    messagingSenderId: "ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ",
-    appId: "ΒΑΛΕ_ΤΟ_ΔΙΚΟ_ΣΟΥ"
+    apiKey: "AIzaSyBBZHmubvSUKaXjeV508mt_IPDMJRm3lRI",
+    authDomain: "party-live-chat.firebaseapp.com",
+    databaseURL: "https://party-live-chat-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "party-live-chat",
+    storageBucket: "party-live-chat.firebasestorage.app",
+    messagingSenderId: "676640078460",
+    appId: "1:676640078460:web:17b79209fdc5e00dec67f9"
   };
 
   // ⚠️ ΑΛΛΑΞΕ ΑΥΤΟΝ ΤΟΝ ΚΩΔΙΚΟ — ADMIN PASSWORD
@@ -695,6 +695,12 @@
   let pmTarget = null;
   let openPickerId = null;
   let gifSearchTimeout = null;
+
+  // Check admin IMMEDIATELY before any Firebase listener runs
+  if (new URLSearchParams(window.location.search).get('admin') === 'true') {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('adminLoginScreen').classList.add('active');
+  }
 
   const chatEnabledRef = ref(db, 'settings/chatEnabled');
   const messagesRef = ref(db, 'messages');
@@ -1214,10 +1220,7 @@
     }
   };
 
-  // Admin access via URL
-  if (new URLSearchParams(window.location.search).get('admin') === 'true') {
-    showScreen('adminLoginScreen');
-  }
+  // Admin access via URL — handled above at init
 </script>
 </body>
 </html>
