@@ -252,6 +252,8 @@
       <div class="admin-card-title">📢 Ανακοίνωση</div>
       <input class="announce-input" id="announceInput" placeholder="Γράψε ανακοίνωση...">
       <button class="btn-announce" onclick="sendAnnouncement()">ΑΠΟΣΤΟΛΗ ΣΕ ΟΛΟΥΣ</button>
+      <div style="margin-top:12px;font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">Ιστορικό Ανακοινώσεων</div>
+      <div id="announcementHistory"><div style="color:var(--text-dim);font-size:13px;padding:4px">Καμία ανακοίνωση ακόμα.</div></div>
     </div>
 
     <div class="admin-card">
@@ -382,7 +384,23 @@
       });
     });
 
-    // Leaderboard live
+    // Ιστορικό ανακοινώσεων
+    const announcements = msgs.filter(([id, msg]) => msg.type === 'announcement');
+    const annHistory = document.getElementById('announcementHistory');
+    if (annHistory) {
+      if (!announcements.length) {
+        annHistory.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:4px">Καμία ανακοίνωση ακόμα.</div>';
+      } else {
+        annHistory.innerHTML = announcements.reverse().map(([id, msg]) => `
+          <div class="admin-msg-item" style="margin-bottom:6px">
+            <div class="admin-msg-content">
+              <div class="admin-msg-nick">${new Date(msg.ts).toLocaleTimeString('el-GR', {hour:'2-digit',minute:'2-digit'})}</div>
+              <div class="admin-msg-text">${escHtml(msg.text||'')}</div>
+            </div>
+            <button class="btn-delete-msg" onclick="window._del('${id}')">✕</button>
+          </div>`).join('');
+      }
+    }
     onValue(leaderboardRef, snap => {
       const data = snap.val();
       const list = document.getElementById('lbList');
