@@ -234,7 +234,7 @@
   }
 
   .ann-sidebar {
-    width: 110px; flex-shrink: 0;
+    width: 160px; flex-shrink: 0;
     background: rgba(13,13,20,0.6);
     border-left: 1px solid rgba(255,190,11,0.15);
     padding: 10px 8px;
@@ -260,11 +260,11 @@
   }
 
   .ann-item-time {
-    font-size: 9px; color: rgba(255,190,11,0.5); letter-spacing: 1px; margin-bottom: 3px;
+    font-size: 10px; color: rgba(255,190,11,0.5); letter-spacing: 1px; margin-bottom: 3px;
   }
 
   .ann-item-text {
-    font-size: 11px; font-weight: 700; color: var(--neon-yellow);
+    font-size: 12px; font-weight: 700; color: var(--neon-yellow);
     line-height: 1.3; word-break: break-word;
   }
 
@@ -275,13 +275,12 @@
   .messages-wrap::-webkit-scrollbar-thumb { background: var(--neon-pink); border-radius: 3px; }
 
   /* ===== MESSAGES ===== */
-  .message { display: flex; flex-direction: column; max-width: 82%; animation: msgIn 0.25s ease-out; }
+  .message { display: flex; flex-direction: column; max-width: 78%; animation: msgIn 0.25s ease-out; }
   @keyframes msgIn { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
 
   .message.own { align-self: flex-end; align-items: flex-end; }
   .message.other { align-self: flex-start; align-items: flex-start; }
   .message.system { align-self: center; align-items: center; max-width: 90%; }
-  .message.announcement { align-self: stretch; max-width: 100%; }
   .message.private { align-self: flex-end; align-items: flex-end; }
   .message.private-in { align-self: flex-start; align-items: flex-start; }
 
@@ -294,12 +293,12 @@
   }
 
   .message.own .msg-bubble {
-    background: linear-gradient(135deg,rgba(255,0,110,0.3),rgba(131,56,236,0.3));
-    border: 1px solid rgba(255,0,110,0.3); border-bottom-right-radius: 4px;
+    background: linear-gradient(135deg,rgba(255,0,110,0.35),rgba(131,56,236,0.35));
+    border: 1px solid rgba(255,0,110,0.4); border-radius: 16px; border-bottom-right-radius: 4px;
   }
   .message.other .msg-bubble {
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-    border-bottom-left-radius: 4px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px; border-bottom-left-radius: 4px;
   }
   .message.system .msg-bubble {
     background: rgba(0,245,255,0.08); border: 1px solid rgba(0,245,255,0.2);
