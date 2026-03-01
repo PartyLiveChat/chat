@@ -1192,11 +1192,21 @@
   };
 
   // ---- SEND MESSAGE ----
+  let lastMessageTime = 0;
+
   window.sendMessage = async function() {
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if (!text || !currentNick) return;
 
+    const now = Date.now();
+    const diff = Math.ceil((3000 - (now - lastMessageTime)) / 1000);
+    if (now - lastMessageTime < 3000) {
+      showToast(`Περίμενε ${diff} δευτερόλεπτο${diff > 1 ? 'α' : ''}...`);
+      return;
+    }
+
+    lastMessageTime = now;
     const msgData = { nick: currentNick, text, ts: Date.now(), type: pmTarget ? 'private' : 'user' };
     if (pmTarget) { msgData.to = pmTarget; cancelPM(); }
 
