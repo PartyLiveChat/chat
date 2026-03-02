@@ -261,6 +261,8 @@
       <input class="kick-input" id="muteInput" type="number" placeholder="Αριθμός χρήστη (π.χ. 47)" inputmode="numeric">
       <input class="kick-input" id="muteMins" type="number" placeholder="Λεπτά mute (π.χ. 5)" inputmode="numeric" style="margin-top:8px">
       <button class="btn-kick" onclick="muteUser()">MUTE ΧΡΗΣΤΗ</button>
+      <div style="margin-top:12px;font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">Muted Χρήστες</div>
+      <div id="mutedList" style="max-height:200px;overflow-y:auto"><div style="color:var(--text-dim);font-size:13px;padding:4px">Κανένας muted χρήστης.</div></div>
     </div>
 
     <div class="admin-card">
@@ -398,6 +400,37 @@
         }
       }
     });
+
+    // Muted users live list
+    onValue(mutedRef, snap => {
+      const muted = snap.val();
+      const list = document.getElementById('mutedList');
+      if (!list) return;
+      if (!muted || !Object.keys(muted).length) {
+        list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:4px">Κανένας muted χρήστης.</div>';
+        return;
+      }
+      const now = Date.now();
+      const active = Object.entries(muted).filter(([nick, data]) => data.until > now);
+      if (!active.length) {
+        list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:4px">Κανένας muted χρήστης.</div>';
+        return;
+      }
+      list.innerHTML = active.map(([nick, data]) => {
+        const remaining = Math.ceil((data.until - now) / 60000);
+        return `
+          <div class="admin-msg-item" style="margin-bottom:6px;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="admin-msg-nick">#${escHtml(nick)} — ${remaining} λεπτά απομένουν</div>
+              <button class="btn-delete-msg" onclick="window.unmuteUser('${nick}')" title="Unmute">🔊</button>
+            </div>
+            <div style="display:flex;gap:6px">
+              <input id="edit-mins-${nick}" type="number" class="kick-input" placeholder="Νέα λεπτά" inputmode="numeric" style="margin-bottom:0;flex:1;font-size:13px;padding:8px">
+              <button class="btn-announce" style="width:auto;padding:0 12px;font-size:13px" onclick="window.editMute('${nick}')">ΑΛΛΑΓΗ</button>
+            </div>
+          </div>`;
+      }).join('');
+    });
   }
 
   // ---- ACTIONS ----
@@ -447,6 +480,19 @@
     await remove(ref(db, `messages/${id}`));
     document.getElementById('searchNick').value = nick;
     window.searchUser();
+  };
+
+  window.editMute = async function(nick) {
+    const mins = parseInt(document.getElementById(`edit-mins-${nick}`)?.value);
+    if (!mins || mins < 1) { showToast('Βάλε έγκυρο αριθμό λεπτών!'); return; }
+    const until = Date.now() + mins * 60 * 1000;
+    await set(ref(db, `muted/${nick}`), { until, mins });
+    showToast(`#${nick} mute αλλάχτηκε σε ${mins} λεπτά!`);
+  };
+
+  window.unmuteUser = async function(nick) {
+    await remove(ref(db, `muted/${nick}`));
+    showToast(`#${nick} unmuted!`);
   };
 
   window.muteUser = async function() {
