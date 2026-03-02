@@ -1966,6 +1966,9 @@
       await remove(presenceRef);
       await remove(leaderboardRef);
       await remove(mutedRef);
+      await remove(ref(db, 'privateRooms'));
+      await remove(ref(db, 'privateRequests'));
+      await remove(ref(db, 'poll'));
       await set(chatEnabledRef, false);
       document.getElementById('chatToggle').classList.remove('on');
       document.getElementById('toggleName').textContent = 'Chat Κλειστό';
