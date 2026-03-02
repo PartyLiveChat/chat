@@ -581,9 +581,8 @@
         let resultText = `📊 Αποτέλεσμα Poll: "${poll.question}"\n`;
         poll.options.forEach(o => {
           const pct = total ? Math.round(totals[o]/total*100) : 0;
-          resultText += `${o === winner[0] ? '🏆' : '▪️'} ${o}: ${totals[o]} (${pct}%)\n`;
+          resultText += `${o === winner[0] ? '🏆' : '▪️'} ${o}: ${pct}%\n`;
         });
-        resultText += `Συνολικές ψήφοι: ${total}`;
 
         await push(ref(db, 'messages'), { type: 'announcement', text: resultText, ts: Date.now() });
         await remove(pollRef);
