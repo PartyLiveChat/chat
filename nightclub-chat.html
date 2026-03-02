@@ -214,7 +214,63 @@
     letter-spacing: 1px; cursor: pointer; white-space: nowrap;
   }
 
-  /* ===== PRIVATE ROOMS ===== */
+  /* ===== POLL ===== */
+  .poll-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 600;
+    background: linear-gradient(135deg, rgba(13,13,20,0.98), rgba(13,13,20,0.95));
+    border-bottom: 2px solid var(--neon-cyan);
+    padding: 16px; animation: slideDown 0.4s ease-out;
+    max-height: 70vh; overflow-y: auto;
+  }
+  @keyframes slideDown { from{transform:translateY(-100%)}to{transform:translateY(0)} }
+
+  .poll-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 600;
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .poll-modal.open { display: flex; }
+  .poll-sheet {
+    background: var(--bg-card); border: 1px solid rgba(0,245,255,0.2);
+    border-radius: 24px 24px 0 0; width: 100%; max-width: 480px;
+    padding: 20px; max-height: 70vh; overflow-y: auto;
+    animation: sheetUp 0.25s ease-out;
+  }
+  .poll-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 3px;
+    color: var(--neon-cyan); margin-bottom: 4px;
+  }
+  .poll-question { font-size: 16px; font-weight: 700; margin-bottom: 14px; line-height: 1.4; }
+  .poll-options { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .poll-option {
+    background: rgba(0,245,255,0.05); border: 1px solid rgba(0,245,255,0.2);
+    border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    transition: all 0.2s; font-size: 15px; font-weight: 600;
+  }
+  .poll-option:active { transform: scale(0.98); }
+  .poll-option.selected {
+    background: rgba(0,245,255,0.15); border-color: var(--neon-cyan);
+    color: var(--neon-cyan);
+  }
+  .poll-bar-wrap { margin-bottom:6px; }
+  .poll-bar-label { display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px; }
+  .poll-bar-bg { background:rgba(255,255,255,0.08); border-radius:6px; height:8px; }
+  .poll-bar-fill { background:var(--neon-cyan); height:8px; border-radius:6px; transition:width 0.5s; }
+  .poll-countdown {
+    text-align:center; font-family:'Bebas Neue',sans-serif; font-size:32px;
+    color:var(--neon-yellow); animation:neonColorShift 6s ease-in-out infinite; margin-top:8px;
+  }
+  .poll-icon-btn {
+    position: relative;
+    background: rgba(0,245,255,0.1); border: 1px solid rgba(0,245,255,0.3);
+    border-radius: 20px; padding: 3px 10px; font-size: 18px; cursor: pointer;
+  }
+  .poll-icon-badge {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--neon-cyan); color: #000; border-radius: 50%;
+    width: 14px; height: 14px; font-size: 9px; font-weight: 700;
+    display: none; align-items: center; justify-content: center;
+  }
+  .poll-icon-badge.show { display: flex; }
   .pm-bar { display: none; } /* Κρύβουμε το παλιό pm-bar */
 
   /* Κουμπί rooms στο header */
@@ -740,6 +796,7 @@
     <div class="header-right">
       <button class="bell-btn" onclick="openBellModal()">🔔<div class="bell-badge" id="bellBadge">0</div></button>
       <button class="rooms-btn" onclick="openRoomsModal()">💬<div class="rooms-badge" id="roomsBadge">0</div></button>
+      <button class="poll-icon-btn" id="pollIconBtn" style="display:none" onclick="openPollModal()">📊<div class="poll-icon-badge" id="pollIconBadge">!</div></button>
       <div class="online-badge">
         <div class="online-dot"></div>
         <span id="onlineCount">0</span>
@@ -818,6 +875,20 @@
         <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
       </button>
     </div>
+  </div>
+</div>
+
+<!-- Poll banner (εμφανίζεται αυτόματα) -->
+<div id="pollBanner" style="display:none"></div>
+
+<!-- Poll modal (εικονίδιο) -->
+<div class="poll-modal" id="pollModal">
+  <div class="poll-sheet">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="poll-title">📊 POLL</div>
+      <button class="pr-close" onclick="closePollModal()">✕</button>
+    </div>
+    <div id="pollModalContent"></div>
   </div>
 </div>
 
@@ -1642,7 +1713,160 @@
     await push(messagesRef, msgData);
   }
 
-  // ---- INPUT EVENTS ----
+  // ---- POLL ----
+  const pollRef = ref(db, 'poll');
+  let myVote = null;
+  let pollBannerTimeout = null;
+  let pollCountdownInterval = null;
+  let currentPoll = null;
+
+  onValue(pollRef, (snap) => {
+    const poll = snap.val();
+    currentPoll = poll;
+
+    if (!poll || !poll.active) {
+      // Poll τελείωσε ή ακυρώθηκε
+      hidePollBanner();
+      document.getElementById('pollIconBtn').style.display = 'none';
+      document.getElementById('pollModal').classList.remove('open');
+      myVote = null;
+      clearInterval(pollCountdownInterval);
+      return;
+    }
+
+    // Βρες την ψήφο του χρήστη αν υπάρχει
+    if (currentNick && poll.votes && poll.votes[currentNick]) {
+      myVote = poll.votes[currentNick];
+    }
+
+    // Αν έχει finishAt → countdown
+    if (poll.finishAt) {
+      startPollCountdown(poll.finishAt, poll);
+    }
+
+    // Εμφάνισε banner ή ανανέωσε modal
+    if (document.getElementById('pollModal').classList.contains('open')) {
+      renderPollContent(poll, 'pollModalContent', false);
+    } else if (document.getElementById('pollBanner').style.display !== 'none') {
+      renderPollBanner(poll);
+    } else {
+      showPollBanner(poll);
+    }
+  });
+
+  function showPollBanner(poll) {
+    clearTimeout(pollBannerTimeout);
+    const banner = document.getElementById('pollBanner');
+    banner.style.display = 'block';
+    renderPollBanner(poll);
+    // Μετά 20 δευτερόλεπτα πάει στο εικονίδιο
+    pollBannerTimeout = setTimeout(() => {
+      hidePollBanner();
+      document.getElementById('pollIconBtn').style.display = 'flex';
+      document.getElementById('pollIconBadge').classList.add('show');
+    }, 20000);
+  }
+
+  function hidePollBanner() {
+    const banner = document.getElementById('pollBanner');
+    banner.style.display = 'none';
+    banner.innerHTML = '';
+    clearTimeout(pollBannerTimeout);
+  }
+
+  function renderPollBanner(poll) {
+    const banner = document.getElementById('pollBanner');
+    banner.className = 'poll-banner';
+    banner.innerHTML = buildPollHTML(poll, true);
+  }
+
+  function renderPollContent(poll, containerId, closable) {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = buildPollHTML(poll, closable);
+  }
+
+  function buildPollHTML(poll, isBanner) {
+    const votes = poll.votes || {};
+    const totals = {};
+    poll.options.forEach(o => totals[o] = 0);
+    Object.values(votes).forEach(v => { if (totals[v] !== undefined) totals[v]++; });
+    const total = Object.values(totals).reduce((a,b) => a+b, 0);
+    const hasVoted = myVote !== null;
+
+    let html = `<div class="poll-question">❓ ${escHtml(poll.question)}</div>`;
+
+    if (!hasVoted) {
+      // Εμφάνισε επιλογές για ψηφοφορία
+      html += `<div class="poll-options">`;
+      poll.options.forEach(o => {
+        html += `<div class="poll-option${myVote===o?' selected':''}" onclick="castVote('${escHtml(o)}')">${escHtml(o)}</div>`;
+      });
+      html += `</div>`;
+    } else {
+      // Εμφάνισε αποτελέσματα με bars
+      html += `<div class="poll-options">`;
+      poll.options.forEach(o => {
+        const count = totals[o] || 0;
+        const pct = total ? Math.round(count/total*100) : 0;
+        html += `
+          <div class="poll-bar-wrap">
+            <div class="poll-option${myVote===o?' selected':''}" onclick="castVote('${escHtml(o)}')" style="margin-bottom:4px">${escHtml(o)}${myVote===o?' ✓':''}</div>
+            <div class="poll-bar-bg"><div class="poll-bar-fill" style="width:${pct}%"></div></div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${count} ψήφοι (${pct}%)</div>
+          </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // Countdown αν τρέχει
+    if (poll.finishAt) {
+      const rem = Math.ceil((poll.finishAt - Date.now()) / 1000);
+      if (rem > 0) {
+        html += `<div class="poll-countdown" id="pollCountdownDisplay">Ολοκληρώνεται σε ${rem}″</div>`;
+      }
+    }
+
+    return html;
+  }
+
+  window.castVote = async function(option) {
+    if (!currentNick || !currentPoll) return;
+    myVote = option;
+    await set(ref(db, `poll/votes/${currentNick}`), option);
+  };
+
+  function startPollCountdown(finishAt, poll) {
+    clearInterval(pollCountdownInterval);
+    pollCountdownInterval = setInterval(async () => {
+      const remaining = Math.ceil((finishAt - Date.now()) / 1000);
+      // Ανανέωσε countdown display
+      const el = document.getElementById('pollCountdownDisplay');
+      if (el) el.textContent = `Ολοκληρώνεται σε ${remaining}″`;
+
+      if (remaining <= 0) {
+        clearInterval(pollCountdownInterval);
+        // Βγάλε αποτέλεσμα ως ανακοίνωση (μόνο ο admin το κάνει — εδώ απλά κλείνουμε)
+        hidePollBanner();
+        document.getElementById('pollIconBtn').style.display = 'none';
+        document.getElementById('pollModal').classList.remove('open');
+      }
+    }, 500);
+  }
+
+  window.openPollModal = function() {
+    if (!currentPoll) return;
+    hidePollBanner();
+    renderPollContent(currentPoll, 'pollModalContent', true);
+    document.getElementById('pollModal').classList.add('open');
+    document.getElementById('pollIconBadge').classList.remove('show');
+  };
+
+  window.closePollModal = function() {
+    document.getElementById('pollModal').classList.remove('open');
+    if (currentPoll && currentPoll.active) {
+      document.getElementById('pollIconBtn').style.display = 'flex';
+    }
+  };
   document.getElementById('chatInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.sendMessage(); }
   });
