@@ -249,7 +249,27 @@
     </div>
 
     <div class="admin-card">
-      <div class="admin-card-title">📢 Ανακοίνωση</div>
+      <div class="admin-card-title">📊 Poll</div>
+      <div id="pollAdminCreate">
+        <input class="announce-input" id="pollQuestion" placeholder="Ερώτηση poll...">
+        <div id="pollOptions">
+          <input class="kick-input" placeholder="Επιλογή 1" style="margin-bottom:6px">
+          <input class="kick-input" placeholder="Επιλογή 2" style="margin-bottom:6px">
+        </div>
+        <button class="btn-announce" style="margin-bottom:8px" onclick="addPollOption()">+ ΠΡΟΣΘΗΚΗ ΕΠΙΛΟΓΗΣ</button>
+        <button class="btn-kick" onclick="startPoll()">ΕΝΑΡΞΗ POLL</button>
+      </div>
+      <div id="pollAdminActive" style="display:none">
+        <div style="font-size:13px;color:var(--neon-cyan);letter-spacing:1px;margin-bottom:10px" id="pollActiveQuestion"></div>
+        <div id="pollLiveResults" style="margin-bottom:12px"></div>
+        <div id="pollFinishWrap">
+          <input class="kick-input" id="pollFinishSecs" type="number" placeholder="Δευτερόλεπτα μέχρι το τέλος (π.χ. 10)" inputmode="numeric" style="margin-bottom:8px">
+          <button class="btn-announce" style="margin-bottom:8px" onclick="finishPoll()">ΟΛΟΚΛΗΡΩΣΗ POLL</button>
+          <button class="btn-kick" onclick="cancelPoll()">ΑΚΥΡΩΣΗ POLL</button>
+        </div>
+        <div id="pollCountdownWrap" style="display:none;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--neon-yellow)" id="pollAdminCountdown"></div>
+      </div>
+    </div>
       <input class="announce-input" id="announceInput" placeholder="Γράψε ανακοίνωση...">
       <button class="btn-announce" onclick="sendAnnouncement()">ΑΠΟΣΤΟΛΗ ΣΕ ΟΛΟΥΣ</button>
       <div style="margin-top:12px;font-size:11px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px">Ιστορικό Ανακοινώσεων</div>
@@ -440,6 +460,137 @@
     await set(chatEnabledRef, !current);
     showToast(current ? 'Chat απενεργοποιήθηκε!' : 'Chat ενεργοποιήθηκε!');
   };
+
+  // ---- POLL ----
+  const pollRef = ref(db, 'poll');
+
+  onValue(pollRef, snap => {
+    const poll = snap.val();
+    const createDiv = document.getElementById('pollAdminCreate');
+    const activeDiv = document.getElementById('pollAdminActive');
+    if (!createDiv || !activeDiv) return;
+
+    if (poll && poll.active) {
+      createDiv.style.display = 'none';
+      activeDiv.style.display = 'block';
+      document.getElementById('pollActiveQuestion').textContent = `❓ ${poll.question}`;
+
+      // Live results
+      const results = document.getElementById('pollLiveResults');
+      const votes = poll.votes || {};
+      const totals = {};
+      poll.options.forEach(o => totals[o] = 0);
+      Object.values(votes).forEach(v => { if (totals[v] !== undefined) totals[v]++; });
+      const total = Object.values(totals).reduce((a,b) => a+b, 0);
+      results.innerHTML = poll.options.map(o => {
+        const count = totals[o] || 0;
+        const pct = total ? Math.round(count/total*100) : 0;
+        return `
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+              <span>${escHtml(o)}</span><span style="color:var(--neon-cyan)">${count} (${pct}%)</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:8px">
+              <div style="background:var(--neon-cyan);height:8px;border-radius:6px;width:${pct}%;transition:width 0.5s"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Countdown display
+      if (poll.finishAt) {
+        document.getElementById('pollFinishWrap').style.display = 'none';
+        document.getElementById('pollCountdownWrap').style.display = 'block';
+      } else {
+        document.getElementById('pollFinishWrap').style.display = 'block';
+        document.getElementById('pollCountdownWrap').style.display = 'none';
+      }
+    } else {
+      createDiv.style.display = 'block';
+      activeDiv.style.display = 'none';
+    }
+  });
+
+  window.addPollOption = function() {
+    const container = document.getElementById('pollOptions');
+    const count = container.querySelectorAll('input').length + 1;
+    const inp = document.createElement('input');
+    inp.className = 'kick-input';
+    inp.placeholder = `Επιλογή ${count}`;
+    inp.style.marginBottom = '6px';
+    container.appendChild(inp);
+  };
+
+  window.startPoll = async function() {
+    const question = document.getElementById('pollQuestion').value.trim();
+    const options = Array.from(document.getElementById('pollOptions').querySelectorAll('input'))
+      .map(i => i.value.trim()).filter(v => v);
+    if (!question) { showToast('Βάλε ερώτηση!'); return; }
+    if (options.length < 2) { showToast('Βάλε τουλάχιστον 2 επιλογές!'); return; }
+    await set(pollRef, { active: true, question, options, votes: {}, ts: Date.now() });
+    showToast('Poll ξεκίνησε!');
+    // Reset form
+    document.getElementById('pollQuestion').value = '';
+    const container = document.getElementById('pollOptions');
+    container.innerHTML = `
+      <input class="kick-input" placeholder="Επιλογή 1" style="margin-bottom:6px">
+      <input class="kick-input" placeholder="Επιλογή 2" style="margin-bottom:6px">`;
+  };
+
+  window.finishPoll = async function() {
+    const secs = parseInt(document.getElementById('pollFinishSecs').value);
+    if (!secs || secs < 1) { showToast('Βάλε δευτερόλεπτα!'); return; }
+    const finishAt = Date.now() + secs * 1000;
+    await set(ref(db, 'poll/finishAt'), finishAt);
+    await set(ref(db, 'poll/finishSecs'), secs);
+    showToast(`Poll ολοκληρώνεται σε ${secs} δευτερόλεπτα!`);
+  };
+
+  window.cancelPoll = async function() {
+    if (confirm('Ακύρωση poll; Δεν θα βγει αποτέλεσμα.')) {
+      await remove(pollRef);
+      showToast('Poll ακυρώθηκε.');
+    }
+  };
+
+  // Poll finish countdown watcher
+  let pollFinishInterval = null;
+  onValue(ref(db, 'poll/finishAt'), async (snap) => {
+    const finishAt = snap.val();
+    clearInterval(pollFinishInterval);
+    if (!finishAt) return;
+
+    pollFinishInterval = setInterval(async () => {
+      const remaining = Math.ceil((finishAt - Date.now()) / 1000);
+      const el = document.getElementById('pollAdminCountdown');
+      if (el) el.textContent = `Ολοκληρώνεται σε ${remaining}″`;
+
+      if (remaining <= 0) {
+        clearInterval(pollFinishInterval);
+        // Διάβασε το poll και στείλε αποτέλεσμα
+        const pollSnap = await get(pollRef);
+        const poll = pollSnap.val();
+        if (!poll) return;
+
+        const votes = poll.votes || {};
+        const totals = {};
+        poll.options.forEach(o => totals[o] = 0);
+        Object.values(votes).forEach(v => { if (totals[v] !== undefined) totals[v]++; });
+        const total = Object.values(totals).reduce((a,b) => a+b, 0);
+        const winner = Object.entries(totals).sort((a,b) => b[1]-a[1])[0];
+
+        let resultText = `📊 Αποτέλεσμα Poll: "${poll.question}"\n`;
+        poll.options.forEach(o => {
+          const pct = total ? Math.round(totals[o]/total*100) : 0;
+          resultText += `${o === winner[0] ? '🏆' : '▪️'} ${o}: ${totals[o]} (${pct}%)\n`;
+        });
+        resultText += `Συνολικές ψήφοι: ${total}`;
+
+        await push(ref(db, 'messages'), { type: 'announcement', text: resultText, ts: Date.now() });
+        await remove(pollRef);
+        showToast('Poll ολοκληρώθηκε! Αποτέλεσμα στάλθηκε.');
+      }
+    }, 500);
+  });
 
   window.sendAnnouncement = async function() {
     const text = document.getElementById('announceInput').value.trim();
