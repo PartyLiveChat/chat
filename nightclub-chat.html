@@ -378,7 +378,20 @@
   }
   .pr-chat-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 2px; color: var(--neon-purple); }
   .pr-chat-msgs { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .pr-chat-input-wrap { padding: 10px 12px; border-top: 1px solid rgba(131,56,236,0.2); display: flex; gap: 8px; flex-shrink: 0; }
+  .pr-chat-input-wrap { padding: 10px 12px; border-top: 1px solid rgba(131,56,236,0.2); display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+  .pr-camera-btn {
+    width: 40px; height: 40px; background: rgba(131,56,236,0.2); border: 1px solid rgba(131,56,236,0.4);
+    border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .pr-msg-img { max-width: 200px; border-radius: 10px; display: block; margin-top: 4px; cursor: pointer; }
+  .pr-img-fullscreen {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999;
+    display: none; align-items: center; justify-content: center;
+  }
+  .pr-img-fullscreen.open { display: flex; }
+  .pr-img-fullscreen img { max-width: 95vw; max-height: 90vh; border-radius: 12px; }
+  .pr-img-fullscreen-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 28px; cursor: pointer; }
   .pr-chat-input {
     flex: 1; background: var(--bg-input); border: 1px solid rgba(131,56,236,0.3);
     border-radius: 12px; padding: 10px 14px; color: var(--text-main);
@@ -869,6 +882,8 @@
     </div>
     <div class="pr-chat-msgs" id="prChatMsgs"></div>
     <div class="pr-chat-input-wrap">
+      <button class="pr-camera-btn" onclick="openPrCamera()">📷</button>
+      <input type="file" id="prCameraInput" accept="image/*" capture="environment" style="display:none" onchange="sendPrPhoto(this)">
       <input class="pr-chat-input" id="prChatInput" placeholder="Γράψε μήνυμα..." maxlength="300"
         onkeydown="if(event.key==='Enter'){event.preventDefault();sendPrMessage();}">
       <button class="pr-send-btn" onclick="sendPrMessage()">
@@ -876,6 +891,12 @@
       </button>
     </div>
   </div>
+</div>
+
+<!-- Fullscreen image viewer -->
+<div class="pr-img-fullscreen" id="prImgFullscreen" onclick="closePrImgFullscreen()">
+  <button class="pr-img-fullscreen-close" onclick="closePrImgFullscreen()">✕</button>
+  <img id="prImgFullscreenImg" src="" alt="photo">
 </div>
 
 <!-- Poll banner (εμφανίζεται αυτόματα) -->
@@ -1624,11 +1645,14 @@
     const wrap = document.getElementById('prChatMsgs');
     if (!wrap) return;
     const msgs = room.msgs.sort((a,b) => a.ts - b.ts);
-    wrap.innerHTML = msgs.map(m => `
-      <div class="${m.from === currentNick ? 'pr-msg-own' : 'pr-msg-other'}">
-        ${escHtml(m.text)}
-        <div class="pr-msg-time">${fmtTime(m.ts)}</div>
-      </div>`).join('');
+    wrap.innerHTML = msgs.map(m => {
+      const isOwn = m.from === currentNick;
+      const cls = isOwn ? 'pr-msg-own' : 'pr-msg-other';
+      const content = m.photo
+        ? `<img class="pr-msg-img" src="${m.photo}" onclick="openPrImgFullscreen('${m.photo}')" alt="photo">`
+        : escHtml(m.text || '');
+      return `<div class="${cls}">${content}<div class="pr-msg-time">${fmtTime(m.ts)}</div></div>`;
+    }).join('');
     wrap.scrollTop = wrap.scrollHeight;
   }
 
@@ -1640,6 +1664,49 @@
     if (!room) return;
     await push(ref(db, `privateRooms/${room.roomId}/messages`), { from: currentNick, text, ts: Date.now() });
     input.value = '';
+  };
+
+  window.openPrCamera = function() {
+    document.getElementById('prCameraInput').click();
+  };
+
+  window.sendPrPhoto = async function(input) {
+    if (!input.files || !input.files[0] || !activeRoomNick || !currentNick) return;
+    const room = myRooms[activeRoomNick];
+    if (!room) return;
+
+    const file = input.files[0];
+    // Compress image before base64
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      img.onload = async () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > h && w > MAX) { h = h * MAX / w; w = MAX; }
+        else if (h > MAX) { w = w * MAX / h; h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
+        await push(ref(db, `privateRooms/${room.roomId}/messages`), {
+          from: currentNick, photo: base64, ts: Date.now()
+        });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  };
+
+  window.openPrImgFullscreen = function(src) {
+    document.getElementById('prImgFullscreenImg').src = src;
+    document.getElementById('prImgFullscreen').classList.add('open');
+  };
+
+  window.closePrImgFullscreen = function() {
+    document.getElementById('prImgFullscreen').classList.remove('open');
   };
 
   window.closeRoom = async function(nick) {
